@@ -68,10 +68,10 @@ function discoverSkills(): SkillInfo[] {
     }
   };
   
-  // Discover from all sources
-  addFromDir(PROJECT_SKILLS_DIR, 'builtin');
+  // Discover from all sources (order matters - first source wins for duplicates)
   addFromDir(CLAWDHUB_DIR, 'clawdhub');
   addFromDir(VERCEL_DIR, 'vercel');
+  addFromDir(PROJECT_SKILLS_DIR, 'builtin');
   
   return skills.sort((a, b) => a.name.localeCompare(b.name));
 }
