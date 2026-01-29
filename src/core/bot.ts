@@ -170,20 +170,15 @@ export class LettaBot {
       cwd: this.config.workingDir,
       model: this.config.model,
       systemPrompt: SYSTEM_PROMPT,
-      defaultConversation: true,  // Use single conversation per agent
     };
-    
-    console.log('[Bot] Session options:', JSON.stringify(baseOptions, null, 2));
     
     try {
       if (this.store.agentId) {
         process.env.LETTA_AGENT_ID = this.store.agentId;
-        console.log(`[Bot] Resuming session for agent ${this.store.agentId}`);
-        console.log(`[Bot] LETTA_BASE_URL=${process.env.LETTA_BASE_URL}`);
-        console.log(`[Bot] LETTA_API_KEY=${process.env.LETTA_API_KEY ? '(set)' : '(not set)'}`);
-        session = resumeSession(this.store.agentId, baseOptions);
+        console.log(`[Bot] Resuming session for agent ${this.store.agentId} (yolo mode)`);
+        session = resumeSession(this.store.agentId, { ...baseOptions, defaultConversation: true });
       } else {
-        console.log('[Bot] Creating new session');
+        console.log('[Bot] Creating new session (yolo mode)');
         session = createSession({ ...baseOptions, memory: loadMemoryBlocks(this.config.agentName) });
       }
       console.log(`[Bot] Session object:`, Object.keys(session));
@@ -309,12 +304,11 @@ export class LettaBot {
       cwd: this.config.workingDir,
       model: this.config.model,
       systemPrompt: SYSTEM_PROMPT,
-      defaultConversation: true,  // Use single conversation per agent
     };
     
     let session: Session;
     if (this.store.agentId) {
-      session = resumeSession(this.store.agentId, baseOptions);
+      session = resumeSession(this.store.agentId, { ...baseOptions, defaultConversation: true });
     } else {
       session = createSession({ ...baseOptions, memory: loadMemoryBlocks(this.config.agentName) });
     }
