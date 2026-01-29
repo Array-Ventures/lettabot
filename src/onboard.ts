@@ -481,13 +481,21 @@ async function stepChannels(config: OnboardConfig, env: Record<string, string>):
     },
   ];
   
-  // Don't pre-select any channels - let user explicitly choose
+  // Pre-select channels that are already enabled (preserves existing config)
+  const initialChannels: string[] = [];
+  if (config.telegram.enabled) initialChannels.push('telegram');
+  if (config.slack.enabled) initialChannels.push('slack');
+  if (config.discord.enabled) initialChannels.push('discord');
+  if (config.whatsapp.enabled) initialChannels.push('whatsapp');
+  if (config.signal.enabled) initialChannels.push('signal');
+  
   let channels: string[] = [];
   
   while (true) {
     const selectedChannels = await p.multiselect({
       message: 'Select channels (space to toggle, enter to confirm)',
       options: channelOptions,
+      initialValues: initialChannels,
       required: false,
     });
     if (p.isCancel(selectedChannels)) { p.cancel('Setup cancelled'); process.exit(0); }
@@ -656,15 +664,17 @@ async function stepChannels(config: OnboardConfig, env: Record<string, string>):
 
   if (config.discord.enabled) {
     p.note(
-      'Create a bot at discord.com/developers/applications.\n' +
-      'Enable "Message Content Intent" for reading messages.\n' +
-      'Invite the bot to your server with Send Messages permission.',
+      '1. Create app at discord.com/developers/applications\n' +
+      '2. Go to Bot → Reset Token → copy the token\n' +
+      '3. Bot → Privileged Gateway Intents → enable MESSAGE CONTENT INTENT\n' +
+      '4. OAuth2 → URL Generator → select "bot" scope + "Send Messages" permission\n' +
+      '5. Copy the generated URL and open it to invite the bot to your server',
       'Discord Setup'
     );
 
     const token = await p.text({
       message: 'Discord Bot Token',
-      placeholder: 'Bot token',
+      placeholder: 'From Bot → Reset Token',
       initialValue: config.discord.token || '',
     });
     if (!p.isCancel(token) && token) config.discord.token = token;
