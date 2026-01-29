@@ -202,7 +202,14 @@ export class LettaBot {
       // Send message to agent with metadata envelope
       const formattedMessage = formatMessageEnvelope(msg);
       console.log('[Bot] Sending message...');
-      await session.send(formattedMessage);
+      
+      // Add timeout to prevent hanging
+      const sendPromise = session.send(formattedMessage);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Session send timeout after 30s')), 30000)
+      );
+      await Promise.race([sendPromise, timeoutPromise]);
+      
       console.log('[Bot] Message sent, starting stream...');
       
       // Stream response
