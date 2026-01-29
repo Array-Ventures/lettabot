@@ -19,6 +19,7 @@ interface OnboardConfig {
   authMethod: 'keep' | 'oauth' | 'apikey' | 'selfhosted' | 'skip';
   apiKey?: string;
   baseUrl?: string;
+  billingTier?: string;
   
   // Agent  
   agentChoice: 'new' | 'existing' | 'env' | 'skip';
@@ -360,24 +361,45 @@ async function stepModel(config: OnboardConfig, env: Record<string, string>): Pr
   // Only for new agents
   if (config.agentChoice !== 'new') return;
   
-  const { buildModelOptions, handleModelSelection } = await import('./utils/model-selection.js');
+  const { buildModelOptions, handleModelSelection, getBillingTier } = await import('./utils/model-selection.js');
   
   const spinner = p.spinner();
+  
+  // Determine if self-hosted (not Letta Cloud)
+  const isSelfHosted = config.authMethod === 'selfhosted';
+  
+  // Fetch billing tier for Letta Cloud users
+  let billingTier: string | null = null;
+  if (!isSelfHosted) {
+    spinner.start('Checking account...');
+    billingTier = await getBillingTier();
+    config.billingTier = billingTier ?? undefined;
+    spinner.stop(billingTier === 'free' ? 'Free plan' : `Plan: ${billingTier || 'unknown'}`);
+  }
+  
   spinner.start('Fetching models...');
-  const modelOptions = await buildModelOptions();
+  const modelOptions = await buildModelOptions({ billingTier, isSelfHosted });
   spinner.stop('Models loaded');
   
-  const modelChoice = await p.select({
-    message: 'Select model',
-    options: modelOptions,
-    maxItems: 10,
-  });
-  if (p.isCancel(modelChoice)) { p.cancel('Setup cancelled'); process.exit(0); }
-  
-  const selectedModel = await handleModelSelection(modelChoice, p.text);
-  if (selectedModel) {
-    config.model = selectedModel;
+  // Show appropriate message for free tier
+  if (billingTier === 'free') {
+    p.log.info('Free plan: GLM and MiniMax models are free. Other models require BYOK (Bring Your Own Key).');
   }
+  
+  let selectedModel: string | null = null;
+  while (!selectedModel) {
+    const modelChoice = await p.select({
+      message: 'Select model',
+      options: modelOptions,
+      maxItems: 12,
+    });
+    if (p.isCancel(modelChoice)) { p.cancel('Setup cancelled'); process.exit(0); }
+    
+    selectedModel = await handleModelSelection(modelChoice, p.text);
+    // If null (e.g., header selected), loop again
+  }
+  
+  config.model = selectedModel;
 }
 
 async function stepChannels(config: OnboardConfig, env: Record<string, string>): Promise<void> {
