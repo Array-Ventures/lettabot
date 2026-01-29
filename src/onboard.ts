@@ -53,11 +53,12 @@ async function stepAuth(config: OnboardConfig, env: Record<string, string>): Pro
   const { requestDeviceCode, pollForToken, LETTA_CLOUD_API_URL } = await import('./auth/oauth.js');
   const { saveTokens, loadTokens, getOrCreateDeviceId, getDeviceName } = await import('./auth/tokens.js');
   
-  const baseUrl = env.LETTA_BASE_URL || process.env.LETTA_BASE_URL;
+  const baseUrl = config.baseUrl || env.LETTA_BASE_URL || process.env.LETTA_BASE_URL;
   const isLettaCloud = !baseUrl || baseUrl === LETTA_CLOUD_API_URL || baseUrl === 'https://api.letta.com';
   
   const existingTokens = loadTokens();
-  const realApiKey = isPlaceholder(env.LETTA_API_KEY) ? undefined : env.LETTA_API_KEY;
+  // Check both env and config for existing API key
+  const realApiKey = config.apiKey || (isPlaceholder(env.LETTA_API_KEY) ? undefined : env.LETTA_API_KEY);
   const validOAuthToken = isLettaCloud ? existingTokens?.accessToken : undefined;
   const hasExistingAuth = !!realApiKey || !!validOAuthToken;
   const displayKey = realApiKey || validOAuthToken;
@@ -149,7 +150,7 @@ async function stepAuth(config: OnboardConfig, env: Record<string, string>): Pro
     const serverUrl = await p.text({ 
       message: 'Letta server URL',
       placeholder: 'http://localhost:8283',
-      initialValue: 'http://localhost:8283',
+      initialValue: config.baseUrl || 'http://localhost:8283',
     });
     if (p.isCancel(serverUrl)) { p.cancel('Setup cancelled'); process.exit(0); }
     
