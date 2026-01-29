@@ -107,56 +107,6 @@ WhatsApp ──┘
 
 At least one channel is required. Telegram is the easiest to start with.
 
-## Configuration
-
-### Environment Variables (.env)
-
-```bash
-# if using the Letta API
-LETTA_API_KEY=your_letta_api_key
-# if using the self-hosted Docker image
-LETTA_BASE_URL=http://localhost:8283
-
-# Telegram (easiest to start)
-TELEGRAM_BOT_TOKEN=your_telegram_bot_token
-TELEGRAM_DM_POLICY=pairing  # pairing, allowlist, or open
-
-# Slack (optional)
-SLACK_BOT_TOKEN=xoxb-your-bot-token
-SLACK_APP_TOKEN=xapp-your-app-token
-
-# WhatsApp (optional)
-WHATSAPP_ENABLED=true
-
-# Signal (optional)
-SIGNAL_PHONE_NUMBER=+1XXXXXXXXXX
-
-# Scheduling (optional)
-CRON_ENABLED=true
-
-# Heartbeat - periodic check-ins (optional)
-HEARTBEAT_INTERVAL_MIN=30
-```
-
-### Full Configuration Reference
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `LETTA_API_KEY` | Yes | API key from app.letta.com |
-| `TELEGRAM_BOT_TOKEN` | * | Bot token from @BotFather |
-| `TELEGRAM_DM_POLICY` | No | pairing/allowlist/open (default: pairing) |
-| `TELEGRAM_ALLOWED_USERS` | No | Comma-separated Telegram user IDs |
-| `SLACK_BOT_TOKEN` | * | Slack bot token (xoxb-...) |
-| `SLACK_APP_TOKEN` | * | Slack app token (xapp-...) |
-| `WHATSAPP_ENABLED` | No | Set to `true` to enable WhatsApp |
-| `SIGNAL_PHONE_NUMBER` | * | Phone number registered with signal-cli |
-| `WORKING_DIR` | No | Agent workspace (default: `/tmp/lettabot`) |
-| `CRON_ENABLED` | No | Enable scheduled tasks |
-| `HEARTBEAT_INTERVAL_MIN` | No | Heartbeat interval in minutes (e.g., `30`) |
-| `HEARTBEAT_TARGET` | No | Where to deliver (e.g., `telegram:123456789`) |
-
-\* At least one channel must be configured
-
 ## Bot Commands
 
 | Command | Description |
@@ -200,7 +150,7 @@ Some skills are automatically enabled based on your configuration:
 
 ### Install from skills.sh
 
-LettaBot is compatible with [skills.sh](https://skills.sh):
+LettaBot is compatible with [skills.sh](https://skills.sh) and [Clawdhub](https://clawdhub.com/). 
 
 ```bash
 # Interactive search
@@ -210,44 +160,7 @@ npm run skills:find
 npm run skills:add supabase/agent-skills
 npm run skills:add anthropics/skills
 ```
-
-## Heartbeat & Scheduling
-
-### Heartbeat
-
-LettaBot can periodically check in with you:
-
-```bash
-HEARTBEAT_INTERVAL_MIN=30
-```
-
-**Silent Mode**: During heartbeats, the agent's text output is NOT automatically sent to you. If the agent wants to contact you, it uses the `lettabot-message` CLI:
-
-```bash
-lettabot-message send --text "Hey, just checking in!"
-```
-
-This prevents spam - the agent only messages you when there's something worth saying.
-
-### Scheduling
-
-When `CRON_ENABLED=true`, the agent can create scheduled tasks:
-
-**One-off reminders:**
-```bash
-lettabot-schedule create \
-  --name "Standup" \
-  --at "2026-01-28T20:15:00Z" \
-  --message "Time for standup!"
-```
-
-**Recurring schedules:**
-```bash
-lettabot-schedule create \
-  --name "Morning Briefing" \
-  --schedule "0 8 * * *" \
-  --message "Good morning! What's on today's agenda?"
-```
+Once you install a skill, you need to import it to your agent with `lettabot skills` (check the status with `lettabot skills status`)
 
 ## Security
 
@@ -289,14 +202,6 @@ npm run build
 lettabot server
 ```
 
-### Local Letta Server
-
-To use a local Letta server instead of Letta Cloud:
-
-```bash
-LETTA_BASE_URL=http://localhost:8283 lettabot server
-```
-
 ## Troubleshooting
 
 ### WhatsApp
@@ -323,8 +228,7 @@ SIGNAL_HTTP_PORT=8091
 **Agent not responding**
 Delete the agent store to create a fresh agent:
 ```bash
-rm lettabot-agent.json
-lettabot server
+lettabot destroy 
 ```
 
 ## Documentation
