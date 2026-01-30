@@ -44,8 +44,8 @@ function readConfigFromEnv(existingConfig: any): any {
     },
     
     whatsapp: {
-      enabled: process.env.WHATSAPP_ENABLED === 'true' || existingConfig.channels?.whatsapp?.enabled,
-      selfChat: process.env.WHATSAPP_SELF_CHAT === 'true' || existingConfig.channels?.whatsapp?.selfChat,
+      enabled: process.env.WHATSAPP_ENABLED === 'true' || !!existingConfig.channels?.whatsapp?.enabled,
+      selfChat: process.env.WHATSAPP_SELF_CHAT === 'true' || !!existingConfig.channels?.whatsapp?.selfChat || false,
       dmPolicy: process.env.WHATSAPP_DM_POLICY || existingConfig.channels?.whatsapp?.dmPolicy || 'pairing',
       allowedUsers: process.env.WHATSAPP_ALLOWED_USERS?.split(',').map(s => s.trim()) || existingConfig.channels?.whatsapp?.allowedUsers,
     },

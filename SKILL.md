@@ -26,7 +26,7 @@ export LETTA_AGENT_ID="agent-..."       # Optional: use existing agent
 
 # 3. Configure channel (example: Telegram)
 export TELEGRAM_BOT_TOKEN="123456:ABC-DEF..."  # From @BotFather
-export TELEGRAM_DM_POLICY="pairing"     # pairing | allowlist | open
+export TELEGRAM_DM_POLICY="pairing"     # Optional: pairing | allowlist | open
 
 # 4. Run non-interactive setup
 lettabot onboard --non-interactive
@@ -79,6 +79,7 @@ The wizard will guide you through:
 |----------|-------------|----------|
 | `SLACK_BOT_TOKEN` | Bot User OAuth Token (xoxb-...) | ✅ |
 | `SLACK_APP_TOKEN` | App-Level Token (xapp-...) for Socket Mode | ✅ |
+| `SLACK_APP_NAME` | Custom app name (default: LETTA_AGENT_NAME or "LettaBot") | ❌ |
 | `SLACK_DM_POLICY` | Access control: `pairing` \| `allowlist` \| `open` | ❌ (default: pairing) |
 | `SLACK_ALLOWED_USERS` | Comma-separated Slack user IDs (if dmPolicy=allowlist) | ❌ |
 
@@ -98,11 +99,15 @@ The wizard will guide you through:
 
 | Variable | Description | Required |
 |----------|-------------|----------|
-| `WHATSAPP_SELF_CHAT` | Enable self-chat mode: `true` \| `false` | ❌ (default: false) |
+| `WHATSAPP_ENABLED` | Enable WhatsApp: `true` \| `false` | ✅ Must be explicit |
+| `WHATSAPP_SELF_CHAT` | Self-chat mode: `true` (personal number) \| `false` (dedicated bot number) | ✅ Must be explicit |
 | `WHATSAPP_DM_POLICY` | Access control: `pairing` \| `allowlist` \| `open` | ❌ (default: pairing) |
 | `WHATSAPP_ALLOWED_USERS` | Comma-separated phone numbers with + (if dmPolicy=allowlist) | ❌ |
 
-**Setup:** QR code appears on first run - scan with WhatsApp app.
+**Important:** 
+- `WHATSAPP_SELF_CHAT=false` (dedicated bot number): Responds to ALL incoming messages
+- `WHATSAPP_SELF_CHAT=true` (personal number): Only responds to "Message Yourself" chat
+- QR code appears on first run - scan with WhatsApp app
 
 ### Signal
 
