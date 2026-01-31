@@ -10,6 +10,7 @@ Your personal AI assistant that remembers everything across **Telegram, Slack, D
 - **Unified Memory** - Single agent remembers everything from all channels
 - **Persistent Memory** - Agent remembers conversations across sessions (days/weeks/months)
 - **Local Tool Execution** - Agent can read files, search code, run commands on your machine
+- **Voice Messages** - Automatic transcription via OpenAI Whisper
 - **Heartbeat** - Periodic check-ins where the agent reviews tasks
 - **Scheduling** - Agent can create one-off reminders and recurring tasks
 - **Streaming Responses** - Real-time message updates as the agent thinks
@@ -85,6 +86,31 @@ lettabot server
 That's it! Message your bot on Telegram.
 
 > **Note:** For detailed environment variable reference and multi-channel setup, see [SKILL.md](./SKILL.md)
+
+## Voice Messages
+
+LettaBot can transcribe voice messages using OpenAI Whisper. Voice messages are automatically converted to text and sent to the agent with a `[Voice message]:` prefix.
+
+**Supported channels:** Telegram, WhatsApp, Signal, Slack, Discord
+
+### Configuration
+
+Add your OpenAI API key to `lettabot.config.yaml`:
+
+```yaml
+transcription:
+  provider: openai
+  apiKey: sk-...
+  model: whisper-1  # optional, defaults to whisper-1
+```
+
+Or set via environment variable:
+
+```bash
+export OPENAI_API_KEY=sk-...
+```
+
+If no API key is configured, voice messages are silently ignored.
 
 ## Skills
 LettaBot is compatible with [skills.sh](https://skills.sh) and [Clawdhub](https://clawdhub.com/). 

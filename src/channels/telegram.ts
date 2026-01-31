@@ -211,7 +211,7 @@ export class TelegramAdapter implements ChannelAdapter {
           });
         }
       } catch (error) {
-        console.error('[Telegram] Error transcribing voice message:', error);
+        console.error('[Telegram] Error processing voice message:', error);
         // Optionally notify user
         await ctx.reply('Sorry, I could not transcribe that voice message.');
       }
