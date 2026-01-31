@@ -37,6 +37,17 @@ npm run build
 npm link
 ```
 
+### Update
+
+```bash
+# Pull latest changes
+git pull origin main
+
+# Reinstall dependencies and rebuild
+npm install
+npm run build
+```
+
 #### Optional: Run a Letta Docker server 
 You can use `lettabot` with a Docker server with: 
 ```
