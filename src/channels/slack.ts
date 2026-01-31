@@ -44,15 +44,43 @@ export class SlackAdapter implements ChannelAdapter {
     });
     
     // Handle messages
-    this.app.message(async ({ message, say }) => {
+    this.app.message(async ({ message, say, client }) => {
       // Type guard for regular messages
       if (message.subtype !== undefined) return;
       if (!('user' in message) || !('text' in message)) return;
       
       const userId = message.user;
-      const text = message.text || '';
+      let text = message.text || '';
       const channelId = message.channel;
       const threadTs = message.thread_ts || message.ts; // Reply in thread if applicable
+      
+      // Handle audio file attachments
+      const files = (message as any).files as Array<{ mimetype?: string; url_private_download?: string; name?: string }> | undefined;
+      const audioFile = files?.find(f => f.mimetype?.startsWith('audio/'));
+      if (audioFile?.url_private_download) {
+        try {
+          const { loadConfig } = await import('../config/index.js');
+          const config = loadConfig();
+          if (!config.transcription?.apiKey && !process.env.OPENAI_API_KEY) {
+            console.log('[Slack] Audio file received but no OpenAI API key configured, skipping');
+          } else {
+            // Download file (requires bot token for auth)
+            const response = await fetch(audioFile.url_private_download, {
+              headers: { 'Authorization': `Bearer ${this.config.botToken}` }
+            });
+            const buffer = Buffer.from(await response.arrayBuffer());
+            
+            const { transcribeAudio } = await import('../transcription/index.js');
+            const ext = audioFile.mimetype?.split('/')[1] || 'mp3';
+            const transcript = await transcribeAudio(buffer, audioFile.name || `audio.${ext}`);
+            
+            console.log(`[Slack] Transcribed audio: "${transcript.slice(0, 50)}..."`);
+            text = (text ? text + '\n' : '') + `[Voice message]: ${transcript}`;
+          }
+        } catch (error) {
+          console.error('[Slack] Error transcribing audio:', error);
+        }
+      }
       
       // Check allowed users
       if (this.config.allowedUsers && this.config.allowedUsers.length > 0) {

@@ -167,6 +167,56 @@ export class TelegramAdapter implements ChannelAdapter {
       }
     });
     
+    // Handle voice messages
+    this.bot.on('message:voice', async (ctx) => {
+      const userId = ctx.from?.id;
+      const chatId = ctx.chat.id;
+      
+      if (!userId) return;
+      
+      // Check if transcription is configured (config or env)
+      const { loadConfig } = await import('../config/index.js');
+      const config = loadConfig();
+      if (!config.transcription?.apiKey && !process.env.OPENAI_API_KEY) {
+        console.log('[Telegram] Voice message received but no OpenAI API key configured, skipping');
+        return;
+      }
+      
+      try {
+        // Get file link
+        const voice = ctx.message.voice;
+        const file = await ctx.api.getFile(voice.file_id);
+        const fileUrl = `https://api.telegram.org/file/bot${this.config.token}/${file.file_path}`;
+        
+        // Download audio
+        const response = await fetch(fileUrl);
+        const buffer = Buffer.from(await response.arrayBuffer());
+        
+        // Transcribe
+        const { transcribeAudio } = await import('../transcription/index.js');
+        const transcript = await transcribeAudio(buffer, 'voice.ogg');
+        
+        console.log(`[Telegram] Transcribed voice message: "${transcript.slice(0, 50)}..."`);
+        
+        // Send to agent as text with prefix
+        if (this.onMessage) {
+          await this.onMessage({
+            channel: 'telegram',
+            chatId: String(chatId),
+            userId: String(userId),
+            userName: ctx.from.username || ctx.from.first_name,
+            messageId: String(ctx.message.message_id),
+            text: `[Voice message]: ${transcript}`,
+            timestamp: new Date(),
+          });
+        }
+      } catch (error) {
+        console.error('[Telegram] Error transcribing voice message:', error);
+        // Optionally notify user
+        await ctx.reply('Sorry, I could not transcribe that voice message.');
+      }
+    });
+    
     // Error handler
     this.bot.catch((err) => {
       console.error('[Telegram] Bot error:', err);

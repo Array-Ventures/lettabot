@@ -49,6 +49,15 @@ export interface LettaBotConfig {
   integrations?: {
     google?: GoogleConfig;
   };
+
+  // Transcription (voice messages)
+  transcription?: TranscriptionConfig;
+}
+
+export interface TranscriptionConfig {
+  provider: 'openai';  // Only OpenAI supported currently
+  apiKey?: string;     // Falls back to OPENAI_API_KEY env var
+  model?: string;      // Defaults to 'whisper-1'
 }
 
 export interface ProviderConfig {

@@ -132,9 +132,34 @@ Ask the bot owner to approve with:
     this.client.on('messageCreate', async (message) => {
       if (message.author?.bot) return;
 
-      const content = (message.content || '').trim();
+      let content = (message.content || '').trim();
       const userId = message.author?.id;
       if (!userId) return;
+      
+      // Handle audio attachments
+      const audioAttachment = message.attachments.find(a => a.contentType?.startsWith('audio/'));
+      if (audioAttachment?.url) {
+        try {
+          const { loadConfig } = await import('../config/index.js');
+          const config = loadConfig();
+          if (!config.transcription?.apiKey && !process.env.OPENAI_API_KEY) {
+            console.log('[Discord] Audio attachment received but no OpenAI API key configured, skipping');
+          } else {
+            // Download audio
+            const response = await fetch(audioAttachment.url);
+            const buffer = Buffer.from(await response.arrayBuffer());
+            
+            const { transcribeAudio } = await import('../transcription/index.js');
+            const ext = audioAttachment.contentType?.split('/')[1] || 'mp3';
+            const transcript = await transcribeAudio(buffer, audioAttachment.name || `audio.${ext}`);
+            
+            console.log(`[Discord] Transcribed audio: "${transcript.slice(0, 50)}..."`);
+            content = (content ? content + '\n' : '') + `[Voice message]: ${transcript}`;
+          }
+        } catch (error) {
+          console.error('[Discord] Error transcribing audio:', error);
+        }
+      }
 
       const access = await this.checkAccess(userId);
       if (access === 'blocked') {

@@ -46,6 +46,11 @@ type SignalSseEvent = {
         groupId?: string;
         groupName?: string;
       };
+      attachments?: Array<{
+        contentType?: string;
+        filename?: string;
+        id?: string;
+      }>;
     };
     syncMessage?: {
       sentMessage?: {
@@ -57,6 +62,11 @@ type SignalSseEvent = {
           groupId?: string;
           groupName?: string;
         };
+        attachments?: Array<{
+          contentType?: string;
+          filename?: string;
+          id?: string;
+        }>;
       };
     };
     typingMessage?: {
@@ -455,23 +465,26 @@ This code expires in 1 hour.`;
       let source: string | undefined;
       let chatId: string | undefined;
       let groupInfo: { groupId?: string; groupName?: string } | undefined;
+      let attachments: Array<{ contentType?: string; filename?: string; id?: string }> | undefined;
       
-      if (dataMessage?.message) {
+      if (dataMessage?.message || dataMessage?.attachments?.length) {
         // Regular incoming message
         messageText = dataMessage.message;
         source = envelope.source || envelope.sourceUuid;
         groupInfo = dataMessage.groupInfo;
+        attachments = dataMessage.attachments;
         
         if (groupInfo?.groupId) {
           chatId = `group:${groupInfo.groupId}`;
         } else {
           chatId = source;
         }
-      } else if (syncMessage?.message) {
+      } else if (syncMessage?.message || syncMessage?.attachments?.length) {
         // Sync message (Note to Self or sent from another device)
         messageText = syncMessage.message;
         source = syncMessage.destination || syncMessage.destinationUuid;
         groupInfo = syncMessage.groupInfo;
+        attachments = syncMessage.attachments;
         
         // For Note to Self, destination is our own number
         const isNoteToSelf = source === this.config.phoneNumber || 
@@ -484,6 +497,30 @@ This code expires in 1 hour.`;
           chatId = `group:${groupInfo.groupId}`;
         } else {
           chatId = source;
+        }
+      }
+      
+      // Handle voice message attachments
+      const voiceAttachment = attachments?.find(a => a.contentType?.startsWith('audio/'));
+      if (voiceAttachment?.filename) {
+        try {
+          const { loadConfig } = await import('../config/index.js');
+          const config = loadConfig();
+          if (!config.transcription?.apiKey && !process.env.OPENAI_API_KEY) {
+            console.log('[Signal] Voice message received but no OpenAI API key configured, skipping');
+          } else {
+            const { readFileSync } = await import('node:fs');
+            const buffer = readFileSync(voiceAttachment.filename);
+            
+            const { transcribeAudio } = await import('../transcription/index.js');
+            const ext = voiceAttachment.contentType?.split('/')[1] || 'ogg';
+            const transcript = await transcribeAudio(buffer, `voice.${ext}`);
+            
+            console.log(`[Signal] Transcribed voice message: "${transcript.slice(0, 50)}..."`);
+            messageText = (messageText ? messageText + '\n' : '') + `[Voice message]: ${transcript}`;
+          }
+        } catch (error) {
+          console.error('[Signal] Error transcribing voice message:', error);
         }
       }
       
