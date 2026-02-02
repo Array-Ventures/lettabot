@@ -54,6 +54,7 @@ export function extractReplyContext(message: import("@whiskeysockets/baileys").p
     id: contextInfo.stanzaId ?? undefined,
     body: body ?? undefined,
     senderJid: contextInfo.participant ?? undefined,
+    senderE164: contextInfo.participant ? jidToE164(contextInfo.participant) : undefined,
   };
 }
 
@@ -194,6 +195,8 @@ export async function extractInboundMessage(
     isSelfChat,
     wasMentioned,
     attachments: attachments.length > 0 ? attachments : undefined,
+    replyToSenderJid: replyContext?.senderJid,
+    replyToSenderE164: replyContext?.senderE164,
   };
 
   return inboundMessage;

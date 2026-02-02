@@ -28,6 +28,7 @@ import type {
   BaileysDisconnectReasonType,
   MessagesUpsertData,
 } from "./types.js";
+import type { GroupMetadata, WAMessageKey } from '@whiskeysockets/baileys';
 import type { CredsSaveQueue } from "../../utils/creds-queue.js";
 
 // Session management
@@ -39,6 +40,7 @@ import {
   checkInboundAccess,
   formatPairingMessage,
 } from "./inbound/access-control.js";
+import { detectMention } from "./inbound/mentions.js";
 
 // Outbound message handling
 import {
@@ -116,11 +118,15 @@ export class WhatsAppAdapter implements ChannelAdapter {
   private sock: BaileysSocket | null = null;
   private DisconnectReason: BaileysDisconnectReasonType | null = null;
   private myJid: string = "";
+  private myLid: string = "";  // Linked Device ID (for Business/multi-device mentions)
   private myNumber: string = "";
 
   // LID mapping for message sending
   private selfChatLid: string = "";
   private lidToJid: Map<string, string> = new Map();
+
+  // Group metadata caching (5 minute TTL)
+  private groupMetadataCache: Map<string, { metadata: GroupMetadata; fetchedAt: number }> = new Map();
 
   // Message tracking
   private sentMessageIds: Set<string> = new Set();
@@ -466,6 +472,7 @@ export class WhatsAppAdapter implements ChannelAdapter {
     this.sock = result.sock;
     this.DisconnectReason = result.DisconnectReason;
     this.myJid = result.myJid;
+    this.myLid = result.myLid;
     this.myNumber = result.myNumber;
     this.credsSaveQueue = result.credsQueue;
 
@@ -478,6 +485,29 @@ export class WhatsAppAdapter implements ChannelAdapter {
     // Start watchdog and crypto error handler
     this.startWatchdog();
     this.registerCryptoErrorHandler();
+  }
+
+  /**
+   * Get group metadata with caching (5 minute TTL).
+   * Reduces API calls for frequently accessed groups.
+   */
+  private async getGroupMetadata(groupJid: string): Promise<GroupMetadata> {
+    if (!this.sock) {
+      throw new Error('Socket not connected');
+    }
+
+    const cached = this.groupMetadataCache.get(groupJid);
+    const now = Date.now();
+    const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+    if (cached && now - cached.fetchedAt < CACHE_TTL) {
+      return cached.metadata;
+    }
+
+    // Fetch fresh metadata
+    const metadata = await this.sock.groupMetadata(groupJid);
+    this.groupMetadataCache.set(groupJid, { metadata, fetchedAt: now });
+    return metadata;
   }
 
   /**
@@ -660,6 +690,10 @@ export class WhatsAppAdapter implements ChannelAdapter {
           allowedUsers: this.config.allowedUsers,
           selfChatMode: this.config.selfChatMode,
           sock: this.sock,
+          // Group policy parameters
+          senderE164: extracted.senderE164,
+          groupPolicy: this.config.groupPolicy,
+          groupAllowFrom: this.config.groupAllowFrom,
         });
 
         if (!access.allowed) {
@@ -672,6 +706,53 @@ export class WhatsAppAdapter implements ChannelAdapter {
           continue;
         }
       }
+
+      // For Business accounts, extract LID from group participants if not already known
+      if (isGroup && !this.myLid && this.sock) {
+        try {
+          const groupMetadata = await this.getGroupMetadata(remoteJid);
+          const botParticipant = groupMetadata.participants?.find((p: any) =>
+            p.jid?.includes(this.myNumber)
+          );
+          if (botParticipant?.lid) {
+            this.myLid = botParticipant.lid;
+            console.log(`[WhatsApp] Discovered bot LID from group participants`);
+          }
+        } catch (err) {
+          console.warn('[WhatsApp] Could not fetch group metadata for LID extraction:', err);
+        }
+      }
+
+      // Detect mentions for ALL messages (groups and DMs) - consistent behavior
+      let wasMentioned = false;
+      const mentionResult = detectMention({
+        body: extracted.body,
+        mentionedJids: extracted.mentionedJids,
+        replyToSenderJid: extracted.replyContext?.senderJid,
+        replyToSenderE164: extracted.replyContext?.senderE164,
+        config: {
+          mentionPatterns: this.config.mentionPatterns || [],
+          selfE164: this.myNumber,
+          selfJid: this.myJid,
+          selfLid: this.myLid,
+        },
+      });
+      wasMentioned = mentionResult.wasMentioned;
+
+      // For groups: apply mention gating if required
+      if (isGroup) {
+        const groupConfig = this.config.groups?.[remoteJid];
+        const wildcardConfig = this.config.groups?.['*'];
+        const requireMention = groupConfig?.requireMention ?? wildcardConfig?.requireMention ?? true;
+
+        if (requireMention && !wasMentioned) {
+          console.log(`[WhatsApp] Group message skipped: mention-required`);
+          continue;
+        }
+      }
+
+      // Set mention status for agent context (both groups and DMs)
+      extracted.wasMentioned = wasMentioned;
 
       // Skip auto-reply for history messages
       const isHistory = type === "append";
@@ -697,6 +778,9 @@ export class WhatsAppAdapter implements ChannelAdapter {
           text: body,
           timestamp: extracted.timestamp,
           isGroup,
+          groupName: extracted.groupSubject,
+          wasMentioned: extracted.wasMentioned,
+          replyToUser: extracted.replyToSenderE164,
         });
       }
     }

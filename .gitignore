@@ -28,12 +28,14 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+.claude/
 
 # Runtime files
 cron-log.jsonl
 cron-jobs.json
 lettabot-agent.json
 PERSONA.md
+CLAUDE.md
 
 # Related repos
 moltbot/

@@ -59,6 +59,9 @@ export interface SocketResult {
   /** Bot's own JID */
   myJid: string;
 
+  /** Bot's Linked Device ID (for Business/multi-device, used in group mentions) */
+  myLid: string;
+
   /** Bot's phone number (E.164 format) */
   myNumber: string;
 }
@@ -245,15 +248,20 @@ export async function createWaSocket(options: SocketOptions): Promise<SocketResu
 
   // Extract bot's own JID and phone number
   const myJid = sock.user?.id || "";
+  const myLid = sock.user?.lid || "";  // Linked Device ID (for Business/multi-device)
   const myNumber = myJid.replace(/@.*/, "").replace(/:\d+/, "");
 
   console.log(`[WhatsApp] Connected as ${myNumber}`);
+  if (myLid) {
+    console.log(`[WhatsApp] Has LID for group mentions`);
+  }
 
   return {
     sock,
     credsQueue,
     DisconnectReason,
     myJid,
+    myLid,
     myNumber,
   };
 }
