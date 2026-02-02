@@ -13,6 +13,7 @@ import {
   upsertPairingRequest,
   formatPairingMessage,
 } from '../pairing/store.js';
+import { normalizePhoneForStorage } from '../utils/phone.js';
 import { existsSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import qrcode from 'qrcode-terminal';
@@ -55,20 +56,20 @@ export class WhatsAppAdapter implements ChannelAdapter {
    */
   private async checkAccess(userId: string, userName?: string): Promise<'allowed' | 'blocked' | 'pairing'> {
     const policy = this.config.dmPolicy || 'pairing';
-    const phone = userId.startsWith('+') ? userId : `+${userId}`;
-    
+    // userId is already normalized with + prefix by normalizePhoneForStorage
+
     // Open policy: everyone allowed
     if (policy === 'open') {
       return 'allowed';
     }
-    
+
     // Self-chat mode: always allow self
     if (this.config.selfChatMode && userId === this.myNumber) {
       return 'allowed';
     }
-    
+
     // Check if already allowed (config or store)
-    const allowed = await isUserAllowed('whatsapp', phone, this.config.allowedUsers);
+    const allowed = await isUserAllowed('whatsapp', userId, this.config.allowedUsers);
     if (allowed) {
       return 'allowed';
     }
@@ -260,7 +261,7 @@ Ask the bot owner to approve with:
         
         if (!text) continue;
         
-        const userId = remoteJid.replace('@s.whatsapp.net', '').replace('@g.us', '');
+        const userId = normalizePhoneForStorage(remoteJid);
         const isGroup = remoteJid.endsWith('@g.us');
         const pushName = m.pushName;
         
