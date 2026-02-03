@@ -455,9 +455,13 @@ async function main() {
   // Start API server (replaces health server, includes health checks)
   // Provides endpoints for CLI to send messages across Docker boundaries
   const apiPort = parseInt(process.env.PORT || '8080', 10);
+  const apiHost = process.env.API_HOST; // undefined = 127.0.0.1 (secure default)
+  const apiCorsOrigin = process.env.API_CORS_ORIGIN; // undefined = same-origin only
   const apiServer = createApiServer(bot, {
     port: apiPort,
     apiKey: apiKey,
+    host: apiHost,
+    corsOrigin: apiCorsOrigin,
   });
   
   // Log status

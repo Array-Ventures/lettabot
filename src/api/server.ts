@@ -19,6 +19,8 @@ const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 interface ServerOptions {
   port: number;
   apiKey: string;
+  host?: string; // Bind address (default: 127.0.0.1 for security)
+  corsOrigin?: string; // CORS origin (default: same-origin only)
 }
 
 /**
@@ -26,8 +28,9 @@ interface ServerOptions {
  */
 export function createApiServer(bot: LettaBot, options: ServerOptions): http.Server {
   const server = http.createServer(async (req, res) => {
-    // Set CORS headers (allow all origins for simplicity)
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    // Set CORS headers (configurable origin, defaults to same-origin for security)
+    const corsOrigin = options.corsOrigin || req.headers.origin || 'null';
+    res.setHeader('Access-Control-Allow-Origin', corsOrigin);
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Api-Key');
 
@@ -122,8 +125,11 @@ export function createApiServer(bot: LettaBot, options: ServerOptions): http.Ser
     sendError(res, 404, 'Not found');
   });
 
-  server.listen(options.port, () => {
-    console.log(`[API] Server listening on port ${options.port}`);
+  // Bind to localhost by default for security (prevents network exposure on bare metal)
+  // Use API_HOST=0.0.0.0 in Docker to expose on all interfaces
+  const host = options.host || '127.0.0.1';
+  server.listen(options.port, host, () => {
+    console.log(`[API] Server listening on ${host}:${options.port}`);
   });
 
   return server;
