@@ -154,7 +154,7 @@ interface OnboardConfig {
   discord: { enabled: boolean; token?: string; dmPolicy?: 'pairing' | 'allowlist' | 'open'; allowedUsers?: string[] };
   
   // Google Workspace (via gog CLI)
-  google: { enabled: boolean; account?: string; services?: string[] };
+  google: { enabled: boolean; account?: string; services?: string[]; allowedRecipients?: string[] };
   
   // Features
   heartbeat: { enabled: boolean; interval?: string };
@@ -1098,7 +1098,8 @@ async function stepGoogle(config: OnboardConfig): Promise<void> {
   }
   
   let selectedAccount: string | undefined;
-  
+  let selectedServices: string[] | undefined;
+
   if (accounts.length > 0) {
     const accountChoice = await p.select({
       message: 'Google account',
@@ -1109,47 +1110,57 @@ async function stepGoogle(config: OnboardConfig): Promise<void> {
       initialValue: config.google.account || accounts[0],
     });
     if (p.isCancel(accountChoice)) { p.cancel('Setup cancelled'); process.exit(0); }
-    
+
     if (accountChoice === '__new__') {
-      selectedAccount = await addGoogleAccount();
+      const result = await addGoogleAccount();
+      if (result) {
+        selectedAccount = result.email;
+        selectedServices = result.services;  // Use services from auth
+      }
     } else {
       selectedAccount = accountChoice as string;
+      // Ask for services since using existing account
+      const servicesChoice = await p.multiselect({
+        message: 'Which Google services do you want to enable?',
+        options: GOG_SERVICES.map(s => ({
+          value: s,
+          label: s.charAt(0).toUpperCase() + s.slice(1),
+          hint: s === 'gmail' ? 'Read/send emails' :
+                s === 'calendar' ? 'View/create events' :
+                s === 'drive' ? 'Access files' :
+                s === 'contacts' ? 'Look up contacts' :
+                s === 'docs' ? 'Read documents' :
+                'Read/edit spreadsheets',
+        })),
+        initialValues: config.google.services || ['gmail', 'calendar'],
+        required: true,
+      });
+      if (p.isCancel(servicesChoice)) { p.cancel('Setup cancelled'); process.exit(0); }
+      selectedServices = servicesChoice as string[];
     }
   } else {
-    selectedAccount = await addGoogleAccount();
+    const result = await addGoogleAccount();
+    if (result) {
+      selectedAccount = result.email;
+      selectedServices = result.services;  // Use services from auth
+    }
   }
-  
-  if (!selectedAccount) {
+
+  if (!selectedAccount || !selectedServices) {
     config.google.enabled = false;
     return;
   }
-  
-  // Select services
-  const selectedServices = await p.multiselect({
-    message: 'Which Google services do you want to enable?',
-    options: GOG_SERVICES.map(s => ({
-      value: s,
-      label: s.charAt(0).toUpperCase() + s.slice(1),
-      hint: s === 'gmail' ? 'Read/send emails' : 
-            s === 'calendar' ? 'View/create events' :
-            s === 'drive' ? 'Access files' :
-            s === 'contacts' ? 'Look up contacts' :
-            s === 'docs' ? 'Read documents' :
-            'Read/edit spreadsheets',
-    })),
-    initialValues: config.google.services || ['gmail', 'calendar'],
-    required: true,
-  });
-  if (p.isCancel(selectedServices)) { p.cancel('Setup cancelled'); process.exit(0); }
-  
+
   config.google.enabled = true;
   config.google.account = selectedAccount;
-  config.google.services = selectedServices as string[];
-  
+  config.google.services = selectedServices;
+  config.google.allowedRecipients = [];  // Secure by default: draft-only mode
+
   p.log.success(`Google Workspace configured: ${selectedAccount}`);
+  p.log.info('Email security: Draft-only mode (no autonomous sending). Add allowed recipients to lettabot.yaml to enable sending.');
 }
 
-async function addGoogleAccount(): Promise<string | undefined> {
+async function addGoogleAccount(): Promise<{ email: string; services: string[] } | undefined> {
   const email = await p.text({
     message: 'Google account email',
     placeholder: 'you@gmail.com',
@@ -1187,7 +1198,7 @@ async function addGoogleAccount(): Promise<string | undefined> {
   
   if (result.status === 0) {
     spinner.stop('Account authorized');
-    return email;
+    return { email, services: services as string[] };
   } else {
     spinner.stop('Authorization failed');
     p.log.error('Failed to authorize account. Try manually: gog auth add ' + email);
@@ -1489,9 +1500,9 @@ export async function onboard(options?: { nonInteractive?: boolean }): Promise<v
       dmPolicy: existingConfig.channels.signal?.dmPolicy,
     },
     google: {
-      enabled: existingConfig.integrations?.google?.enabled || false,
-      account: existingConfig.integrations?.google?.account,
-      services: existingConfig.integrations?.google?.services,
+      enabled: existingConfig.polling?.gmail?.enabled || false,
+      account: existingConfig.polling?.gmail?.account,
+      services: existingConfig.polling?.gmail?.services,
     },
     heartbeat: { 
       enabled: existingConfig.features?.heartbeat?.enabled || false,
@@ -1715,11 +1726,12 @@ export async function onboard(options?: { nonInteractive?: boolean }): Promise<v
       },
     },
     ...(config.google.enabled ? {
-      integrations: {
-        google: {
+      polling: {
+        gmail: {
           enabled: true,
           account: config.google.account,
           services: config.google.services,
+          allowedRecipients: config.google.allowedRecipients,
         },
       },
     } : {}),

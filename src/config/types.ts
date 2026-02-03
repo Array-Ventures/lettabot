@@ -45,9 +45,11 @@ export interface LettaBotConfig {
     };
   };
 
-  // Integrations (Google Workspace, etc.)
-  integrations?: {
-    google?: GoogleConfig;
+  // Polling - Gmail subsystem (active operations + background monitoring)
+  polling?: {
+    enabled?: boolean;
+    intervalMs?: number;
+    gmail?: GoogleConfig;
   };
 
   // Transcription (voice messages)
@@ -113,6 +115,7 @@ export interface GoogleConfig {
   enabled: boolean;
   account?: string;
   services?: string[];  // e.g., ['gmail', 'calendar', 'drive', 'contacts', 'docs', 'sheets']
+  allowedRecipients?: string[];  // Email security: allowed recipients (supports *@domain.com wildcards)
 }
 
 // Default config

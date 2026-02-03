@@ -103,8 +103,8 @@ export interface BotConfig {
   model?: string; // e.g., 'anthropic/claude-sonnet-4-5-20250929'
   agentName?: string; // Name for the agent (set via API after creation)
   allowedTools: string[];
-  
-  // Security
+
+  // Security (Gmail security handled by hooks)
   allowedUsers?: string[];  // Empty = allow all
 }
 

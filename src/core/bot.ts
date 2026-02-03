@@ -47,6 +47,19 @@ export class LettaBot {
     this.channels.set(adapter.id, adapter);
     console.log(`Registered channel: ${adapter.name}`);
   }
+
+  /**
+   * Build session options (Gmail security handled by hooks).
+   * Extracted to avoid duplication between processMessage and sendToAgent.
+   */
+  private buildSessionOptions(): any {
+    return {
+      allowedTools: this.config.allowedTools,
+      cwd: this.config.workingDir,
+      systemPrompt: SYSTEM_PROMPT,
+      permissionMode: 'bypassPermissions',  // Hooks handle security, not SDK callback
+    };
+  }
   
   /**
    * Handle slash commands
@@ -184,14 +197,7 @@ export class LettaBot {
     let session: Session;
     let usedDefaultConversation = false;
     let usedSpecificConversation = false;
-    // Base options for all sessions (model only included for new agents)
-    const baseOptions = {
-      permissionMode: 'bypassPermissions' as const,
-      allowedTools: this.config.allowedTools,
-      cwd: this.config.workingDir,
-      systemPrompt: SYSTEM_PROMPT,
-      // bypassPermissions mode auto-allows all tools, no canUseTool callback needed
-    };
+    const baseOptions = this.buildSessionOptions();
     
     console.log('[Bot] Creating/resuming session');
     try {
@@ -428,15 +434,8 @@ export class LettaBot {
     text: string,
     _context?: TriggerContext
   ): Promise<string> {
-    // Base options (model only for new agents)
-    const baseOptions = {
-      permissionMode: 'bypassPermissions' as const,
-      allowedTools: this.config.allowedTools,
-      cwd: this.config.workingDir,
-      systemPrompt: SYSTEM_PROMPT,
-      // bypassPermissions mode auto-allows all tools, no canUseTool callback needed
-    };
-    
+    const baseOptions = this.buildSessionOptions();
+
     let session: Session;
     let usedDefaultConversation = false;
     let usedSpecificConversation = false;

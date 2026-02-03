@@ -119,6 +119,7 @@ import { HeartbeatService } from './cron/heartbeat.js';
 import { PollingService } from './polling/service.js';
 import { agentExists } from './tools/letta-api.js';
 import { installSkillsToWorkingDir } from './skills/loader.js';
+import { installHooks } from './hooks/index.js';
 
 // Check if config exists
 const configPath = resolveConfigPath();
@@ -271,13 +272,15 @@ const config = {
     target: parseHeartbeatTarget(process.env.HEARTBEAT_TARGET),
   },
   
-  // Polling - system-level background checks
+  // Polling - Gmail subsystem (includes active operations + background monitoring)
   polling: {
-    enabled: !!process.env.GMAIL_ACCOUNT, // Enable if any poller is configured
+    enabled: !!process.env.GMAIL_ACCOUNT, // Enable if Gmail is configured
     intervalMs: parseInt(process.env.POLLING_INTERVAL_MS || '60000', 10), // Default 1 minute
     gmail: {
       enabled: !!process.env.GMAIL_ACCOUNT,
       account: process.env.GMAIL_ACCOUNT || '',
+      services: process.env.GMAIL_SERVICES?.split(',').filter(Boolean) || ['gmail', 'calendar'],
+      allowedRecipients: process.env.GMAIL_ALLOWED_RECIPIENTS?.split(',').filter(Boolean),
     },
   },
 };
@@ -299,14 +302,29 @@ async function main() {
   
   installSkillsToWorkingDir(config.workingDir, {
     cronEnabled: config.cronEnabled,
-    googleEnabled: config.polling.gmail.enabled, // Gmail polling uses gog skill
+    googleEnabled: config.polling.gmail.enabled, // Gmail enabled (active + polling)
   });
   
   const existingSkills = readdirSync(skillsDir).filter(f => !f.startsWith('.'));
   if (existingSkills.length > 0) {
     console.log(`[Skills] ${existingSkills.length} skill(s) available: ${existingSkills.join(', ')}`);
   }
-  
+
+  // Install security hooks dynamically based on enabled integrations
+  const hooksConfig = {
+    gmail: config.polling?.gmail?.enabled && config.polling.gmail.allowedRecipients !== undefined,
+  };
+
+  if (hooksConfig.gmail) {
+    installHooks(config.workingDir, hooksConfig);
+
+    if (config.polling.gmail.allowedRecipients!.length === 0) {
+      console.log(`[Hooks] Gmail: draft-only mode (autonomous sending blocked)`);
+    } else {
+      console.log(`[Hooks] Gmail: ${config.polling.gmail.allowedRecipients!.length} allowed recipients`);
+    }
+  }
+
   // Create bot
   const bot = new LettaBot({
     workingDir: config.workingDir,
