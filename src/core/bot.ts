@@ -333,7 +333,6 @@ export class LettaBot {
               const formatted = `_[thinking]_ ${truncated}`;
               try {
                 await adapter.sendMessage({ chatId: msg.chatId, text: formatted, threadId: msg.threadId });
-                sentAnyMessage = true;
               } catch {
                 // Ignore send errors for reasoning display
               }
@@ -359,7 +358,6 @@ export class LettaBot {
             const formatted = `\`[tool]\` ${toolName}: ${inputStr}`;
             try {
               await adapter.sendMessage({ chatId: msg.chatId, text: formatted, threadId: msg.threadId });
-              sentAnyMessage = true;
             } catch {
               // Ignore send errors for tool display
             }
@@ -385,7 +383,6 @@ export class LettaBot {
             const formatted = `${prefix} ${resultStr}`;
             try {
               await adapter.sendMessage({ chatId: msg.chatId, text: formatted, threadId: msg.threadId });
-              sentAnyMessage = true;
             } catch {
               // Ignore send errors for result display
             }
