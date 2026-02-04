@@ -113,9 +113,25 @@ export class Store {
   get lastMessageTarget(): LastMessageTarget | null {
     return this.data.lastMessageTarget || null;
   }
-  
+
   set lastMessageTarget(target: LastMessageTarget | null) {
     this.data.lastMessageTarget = target || undefined;
     this.save();
+  }
+
+  /**
+   * Get agent ID or throw if none exists.
+   * For CLI commands that require an existing agent.
+   */
+  static getAgentIdOrThrow(): string {
+    const storePath = resolve(getDataDir(), DEFAULT_STORE_PATH);
+    if (!existsSync(storePath)) {
+      throw new Error('No agent found. Run `lettabot onboard` or `lettabot server` first to create an agent.');
+    }
+    const data = JSON.parse(readFileSync(storePath, 'utf-8'));
+    if (!data.agentId) {
+      throw new Error('No agent found. Run `lettabot onboard` or `lettabot server` first to create an agent.');
+    }
+    return data.agentId;
   }
 }

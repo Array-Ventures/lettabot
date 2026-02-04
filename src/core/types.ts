@@ -105,7 +105,11 @@ export interface BotConfig {
   model?: string; // e.g., 'anthropic/claude-sonnet-4-5-20250929'
   agentName?: string; // Name for the agent (set via API after creation)
   allowedTools: string[];
-  
+
+  // Skills (feature-gated)
+  cronEnabled?: boolean;
+  googleEnabled?: boolean;
+
   // Security
   allowedUsers?: string[];  // Empty = allow all
 }

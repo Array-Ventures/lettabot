@@ -123,7 +123,6 @@ import { CronService } from './cron/service.js';
 import { HeartbeatService } from './cron/heartbeat.js';
 import { PollingService } from './polling/service.js';
 import { agentExists, findAgentByName } from './tools/letta-api.js';
-import { installSkillsToWorkingDir } from './skills/loader.js';
 
 // Check if config exists (skip in Railway/Docker where env vars are used directly)
 const configPath = resolveConfigPath();
@@ -304,7 +303,7 @@ if (!process.env.LETTA_API_KEY) {
 
 async function main() {
   console.log('Starting LettaBot...\n');
-  
+
   // Log storage locations (helpful for Railway debugging)
   const dataDir = getDataDir();
   if (hasRailwayVolume()) {
@@ -312,28 +311,20 @@ async function main() {
   }
   console.log(`[Storage] Data directory: ${dataDir}`);
   console.log(`[Storage] Working directory: ${config.workingDir}`);
-  
-  // Install feature-gated skills based on enabled features
-  // Skills are NOT installed by default - only when their feature is enabled
-  const skillsDir = resolve(config.workingDir, '.skills');
-  mkdirSync(skillsDir, { recursive: true });
-  
-  installSkillsToWorkingDir(config.workingDir, {
-    cronEnabled: config.cronEnabled,
-    googleEnabled: config.polling.gmail.enabled, // Gmail polling uses gog skill
-  });
-  
-  const existingSkills = readdirSync(skillsDir).filter(f => !f.startsWith('.'));
-  if (existingSkills.length > 0) {
-    console.log(`[Skills] ${existingSkills.length} skill(s) available: ${existingSkills.join(', ')}`);
-  }
-  
+
+  // Skills are now installed to agent-scoped directory (~/.letta/agents/{id}/skills/)
+  // after agent creation in bot.ts. This aligns with Letta Code CLI behavior.
+  // See: https://github.com/letta-ai/lettabot/issues/108
+
   // Create bot
   const bot = new LettaBot({
     workingDir: config.workingDir,
     model: config.model,
     agentName: process.env.AGENT_NAME || 'LettaBot',
     allowedTools: config.allowedTools,
+    // Feature flags for skill installation (skills installed to agent-scoped dir after agent creation)
+    cronEnabled: config.cronEnabled,
+    googleEnabled: config.polling.gmail.enabled,
   });
 
   const attachmentsDir = resolve(config.workingDir, 'attachments');
